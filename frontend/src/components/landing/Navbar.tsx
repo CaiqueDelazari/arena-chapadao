@@ -21,8 +21,7 @@ export default function Navbar() {
 
   const navLinks = [
     { href: '#como-funciona', label: 'Como Funciona' },
-    { href: '#reserva', label: 'Reservar' },
-    { href: '#admin', label: 'Para Arenas' },
+    { href: '/agenda', label: 'Ver Horários' },
   ];
 
   return (
@@ -77,11 +76,11 @@ export default function Navbar() {
           )}
           <Button
             size="sm"
-            onClick={() => window.location.href = '/admin/login'}
+            onClick={() => window.location.href = '/agenda'}
             className="hidden md:flex text-white font-bold"
             style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}
           >
-            Admin
+            Reservar Agora
           </Button>
           <button
             className="md:hidden p-2 text-white"
@@ -111,8 +110,9 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
-              <Button fullWidth onClick={() => window.location.href = '/admin/login'}>
-                Área Admin
+              <Button fullWidth onClick={() => window.location.href = '/agenda'}
+                style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}>
+                Reservar Agora
               </Button>
             </div>
           </motion.div>

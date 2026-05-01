@@ -95,11 +95,11 @@ export default function Hero() {
           >
             <Button
               size="xl"
-              onClick={() => document.getElementById('reserva')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => window.location.href = '/agenda'}
               className="font-black text-lg text-white shadow-glow-orange"
               style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}
             >
-              Reservar Agora
+              Ver Horários Disponíveis
               <ArrowRight className="w-5 h-5" />
             </Button>
             <Button

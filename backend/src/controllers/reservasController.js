@@ -183,4 +183,92 @@ const getAgenda = async (req, res) => {
   }
 };
 
-module.exports = { create, getAll, getById, updateStatus, cancel, getAgenda };
+const getMyReservas = async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT r.*, q.name as quadra_name, q.sport_type,
+              p.pix_qr_code, p.pix_copy_paste, p.status as pagamento_status, p.id as pagamento_id
+       FROM reservas r
+       LEFT JOIN quadras q ON r.quadra_id = q.id
+       LEFT JOIN pagamentos p ON r.id = p.reserva_id
+       WHERE r.client_id = $1
+       ORDER BY r.date DESC, r.start_time DESC`,
+      [req.user.id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('getMyReservas error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao buscar reservas' });
+  }
+};
+
+const reschedule = async (req, res) => {
+  const dbClient = await getClient();
+  try {
+    await dbClient.query('BEGIN');
+
+    const { date, start_time } = req.body;
+    const { id } = req.params;
+
+    if (!date || !start_time) {
+      return res.status(400).json({ success: false, message: 'Data e horário são obrigatórios' });
+    }
+
+    const reservaResult = await dbClient.query('SELECT * FROM reservas WHERE id = $1', [id]);
+    if (reservaResult.rows.length === 0) {
+      await dbClient.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Reserva não encontrada' });
+    }
+
+    const reserva = reservaResult.rows[0];
+
+    if (req.user.role === 'client' && reserva.client_id !== req.user.id) {
+      await dbClient.query('ROLLBACK');
+      return res.status(403).json({ success: false, message: 'Sem permissão para remarcar esta reserva' });
+    }
+
+    if (['cancelled', 'completed'].includes(reserva.status)) {
+      await dbClient.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Esta reserva não pode ser remarcada' });
+    }
+
+    // Mantém a mesma duração original
+    const origStart = reserva.start_time.substring(0, 5);
+    const origEnd = reserva.end_time.substring(0, 5);
+    const [sh, sm] = origStart.split(':').map(Number);
+    const [eh, em] = origEnd.split(':').map(Number);
+    const durationMin = (eh * 60 + em) - (sh * 60 + sm);
+
+    const [newH, newM] = start_time.split(':').map(Number);
+    const endMin = newH * 60 + newM + durationMin;
+    const end_time = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+
+    const conflict = await dbClient.query(
+      `SELECT id FROM reservas
+       WHERE quadra_id = $1 AND date = $2 AND status NOT IN ('cancelled') AND id != $3
+       AND (start_time < $5 AND end_time > $4)`,
+      [reserva.quadra_id, date, id, start_time, end_time]
+    );
+
+    if (conflict.rows.length > 0) {
+      await dbClient.query('ROLLBACK');
+      return res.status(409).json({ success: false, message: 'Horário já reservado. Escolha outro.' });
+    }
+
+    const result = await dbClient.query(
+      'UPDATE reservas SET date = $1, start_time = $2, end_time = $3, updated_at = NOW() WHERE id = $4 RETURNING *',
+      [date, start_time, end_time, id]
+    );
+
+    await dbClient.query('COMMIT');
+    res.json({ success: true, data: result.rows[0], message: 'Reserva remarcada com sucesso' });
+  } catch (err) {
+    await dbClient.query('ROLLBACK');
+    console.error('Reschedule error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao remarcar reserva' });
+  } finally {
+    dbClient.release();
+  }
+};
+
+module.exports = { create, getAll, getById, updateStatus, cancel, getAgenda, getMyReservas, reschedule };

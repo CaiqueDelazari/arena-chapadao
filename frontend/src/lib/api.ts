@@ -75,6 +75,11 @@ export const reservasApi = {
     api.put<ApiResponse<Reserva>>(`/reservas/${id}/status`, { status }),
 
   cancel: (id: string) => api.post(`/reservas/${id}/cancel`),
+
+  getMinhas: () => api.get<ApiResponse<Reserva[]>>('/reservas/minhas'),
+
+  remarcar: (id: string, data: { date: string; start_time: string }) =>
+    api.put<ApiResponse<Reserva>>(`/reservas/${id}/remarcar`, data),
 };
 
 export const pagamentosApi = {
