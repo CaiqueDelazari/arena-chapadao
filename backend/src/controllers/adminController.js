@@ -8,14 +8,14 @@ const getDashboard = async (req, res) => {
     const weekStartStr = weekStart.toISOString().split('T')[0];
 
     const [todayReservas, weekReservas, revenueToday, revenueMonth, upcomingReservas, recentPayments] = await Promise.all([
-      query(`SELECT COUNT(*) FROM reservas WHERE date = $1 AND status != 'cancelled'`, [today]),
-      query(`SELECT COUNT(*) FROM reservas WHERE date >= $1 AND status != 'cancelled'`, [weekStartStr]),
-      query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM reservas WHERE date = $1 AND payment_status = 'approved'`, [today]),
-      query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM reservas WHERE DATE_TRUNC('month', date) = DATE_TRUNC('month', CURRENT_DATE) AND payment_status = 'approved'`),
+      query(`SELECT COUNT(*) FROM reservas WHERE DATE(date) = $1 AND status != 'cancelled'`, [today]),
+      query(`SELECT COUNT(*) FROM reservas WHERE DATE(date) >= $1 AND status != 'cancelled'`, [weekStartStr]),
+      query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM reservas WHERE DATE(date) = $1 AND payment_status = 'approved'`, [today]),
+      query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM reservas WHERE DATE_TRUNC('month', DATE(date)) = DATE_TRUNC('month', CURRENT_DATE) AND payment_status = 'approved'`),
       query(
         `SELECT r.*, q.name as quadra_name, q.sport_type FROM reservas r
          LEFT JOIN quadras q ON r.quadra_id = q.id
-         WHERE r.date >= $1 AND r.status NOT IN ('cancelled')
+         WHERE DATE(r.date) >= $1 AND r.status NOT IN ('cancelled')
          ORDER BY r.date, r.start_time LIMIT 10`,
         [today]
       ),
@@ -46,16 +46,19 @@ const getDashboard = async (req, res) => {
 const getFinanceiro = async (req, res) => {
   try {
     const { period = 'month', start_date, end_date } = req.query;
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
     let dateFilter;
+    let params = [];
 
-    if (start_date && end_date) {
-      dateFilter = `r.date BETWEEN '${start_date}' AND '${end_date}'`;
+    if (start_date && end_date && isoDate.test(start_date) && isoDate.test(end_date)) {
+      dateFilter = `DATE(r.date) BETWEEN $1 AND $2`;
+      params = [start_date, end_date];
     } else if (period === 'day') {
-      dateFilter = `r.date = CURRENT_DATE`;
+      dateFilter = `DATE(r.date) = CURRENT_DATE`;
     } else if (period === 'week') {
-      dateFilter = `r.date >= DATE_TRUNC('week', CURRENT_DATE)`;
+      dateFilter = `DATE(r.date) >= DATE_TRUNC('week', CURRENT_DATE)`;
     } else {
-      dateFilter = `DATE_TRUNC('month', r.date) = DATE_TRUNC('month', CURRENT_DATE)`;
+      dateFilter = `DATE_TRUNC('month', DATE(r.date)) = DATE_TRUNC('month', CURRENT_DATE)`;
     }
 
     const [totals, transactions, byQuadra, byDay] = await Promise.all([
@@ -65,24 +68,24 @@ const getFinanceiro = async (req, res) => {
           COALESCE(SUM(CASE WHEN payment_status = 'approved' THEN total_amount ELSE 0 END), 0) as recebidos,
           COALESCE(SUM(CASE WHEN payment_status = 'pending' AND status != 'cancelled' THEN total_amount ELSE 0 END), 0) as pendentes
         FROM reservas r WHERE ${dateFilter}
-      `),
+      `, params),
       query(`
         SELECT r.date, r.client_name, q.name as quadra_name, q.sport_type, r.total_amount, r.payment_method, r.payment_status, r.status
         FROM reservas r LEFT JOIN quadras q ON r.quadra_id = q.id
         WHERE ${dateFilter} ORDER BY r.date DESC, r.created_at DESC LIMIT 100
-      `),
+      `, params),
       query(`
         SELECT q.name as quadra_name, q.sport_type, COUNT(*) as total_reservas,
                COALESCE(SUM(r.total_amount), 0) as receita
         FROM reservas r LEFT JOIN quadras q ON r.quadra_id = q.id
         WHERE ${dateFilter} AND r.payment_status = 'approved'
         GROUP BY q.id, q.name, q.sport_type
-      `),
+      `, params),
       query(`
-        SELECT r.date, COALESCE(SUM(CASE WHEN r.payment_status = 'approved' THEN r.total_amount ELSE 0 END), 0) as receita,
+        SELECT DATE(r.date) as date, COALESCE(SUM(CASE WHEN r.payment_status = 'approved' THEN r.total_amount ELSE 0 END), 0) as receita,
                COUNT(*) as total
-        FROM reservas r WHERE ${dateFilter} GROUP BY r.date ORDER BY r.date
-      `),
+        FROM reservas r WHERE ${dateFilter} GROUP BY DATE(r.date) ORDER BY DATE(r.date)
+      `, params),
     ]);
 
     res.json({

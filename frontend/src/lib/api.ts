@@ -78,7 +78,7 @@ export const reservasApi = {
 
   getMinhas: () => api.get<ApiResponse<Reserva[]>>('/reservas/minhas'),
 
-  remarcar: (id: string, data: { date: string; start_time: string }) =>
+  remarcar: (id: string, data: { date: string; start_time: string; quadra_id?: string }) =>
     api.put<ApiResponse<Reserva>>(`/reservas/${id}/remarcar`, data),
 };
 

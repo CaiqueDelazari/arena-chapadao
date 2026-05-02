@@ -1,15 +1,17 @@
 'use client';
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { reservasApi, pagamentosApi } from '@/lib/api';
-import { formatDate, formatCurrency, getSportLabel, getSportIcon, cn } from '@/lib/utils';
+import { formatDate, formatCurrency, getSportLabel, cn } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 import { ArrowLeft, Copy, CheckCircle, CreditCard, Smartphone, Tag, User, Phone, Mail } from 'lucide-react';
 import { UseBookingReturn } from './types';
+
+const PIX_POLL_INTERVAL_MS = 5000;
+const PIX_POLL_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface Props { booking: UseBookingReturn; }
 
@@ -25,7 +27,22 @@ export default function Step3Payment({ booking }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [pixData, setPixData] = useState<{ pix_copy_paste: string; pix_qr_code: string; amount: number } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [pixExpired, setPixExpired] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    }
+  };
+
+  useEffect(() => stopPolling, []);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
 
@@ -58,17 +75,22 @@ export default function Step3Payment({ booking }: Props) {
         setPixData({ pix_copy_paste: pix.pix_copy_paste, pix_qr_code: pix.pix_qr_code, amount: pix.amount });
         booking.setPagamento({ id: pix.pagamento_id, pix_copy_paste: pix.pix_copy_paste, pix_qr_code: pix.pix_qr_code, method: 'pix', amount: pix.amount });
 
-        // Poll for payment confirmation
-        const interval = setInterval(async () => {
+        stopPolling();
+        setPixExpired(false);
+        pollIntervalRef.current = setInterval(async () => {
           try {
             const statusRes = await pagamentosApi.getStatus(pix.pagamento_id);
             if (statusRes.data.data.status === 'approved') {
-              clearInterval(interval);
+              stopPolling();
               booking.nextStep();
             }
           } catch (_) {}
-        }, 5000);
-        setPollInterval(interval);
+        }, PIX_POLL_INTERVAL_MS);
+        pollTimeoutRef.current = setTimeout(() => {
+          stopPolling();
+          setPixExpired(true);
+          toast('PIX expirou. Gere um novo para continuar.', { icon: '⏰' });
+        }, PIX_POLL_TIMEOUT_MS);
       } else {
         booking.setPagamento({ id: reserva.id, method: 'cartao', amount: totalAmount });
         booking.nextStep();
@@ -92,9 +114,11 @@ export default function Step3Payment({ booking }: Props) {
   };
 
   const simulatePayment = () => {
-    if (pollInterval) clearInterval(pollInterval);
+    stopPolling();
     booking.nextStep();
   };
+
+  const isDev = process.env.NODE_ENV !== 'production';
 
   if (pixData) {
     return (
@@ -129,19 +153,32 @@ export default function Step3Payment({ booking }: Props) {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button fullWidth onClick={copyPix} variant={copied ? 'secondary' : 'primary'}>
+            <Button fullWidth onClick={copyPix} variant={copied ? 'secondary' : 'primary'} disabled={pixExpired}>
               {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copiado!' : 'Copiar código PIX'}
             </Button>
-            <p className="text-xs text-slate-400">Aguardando confirmação do pagamento...</p>
-            <div className="flex gap-2">
-              <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-            <Button variant="ghost" size="sm" onClick={simulatePayment} className="text-xs">
-              Simular pagamento aprovado (dev)
-            </Button>
+            {pixExpired ? (
+              <>
+                <p className="text-xs text-red-500 font-semibold">PIX expirado. Por favor, refaça o pagamento.</p>
+                <Button fullWidth size="sm" onClick={() => { setPixData(null); setPixExpired(false); }}>
+                  Gerar novo PIX
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-400">Aguardando confirmação do pagamento...</p>
+                <div className="flex gap-2 justify-center">
+                  <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </>
+            )}
+            {isDev && (
+              <Button variant="ghost" size="sm" onClick={simulatePayment} className="text-xs">
+                Simular pagamento aprovado (dev)
+              </Button>
+            )}
           </div>
         </Card>
       </div>

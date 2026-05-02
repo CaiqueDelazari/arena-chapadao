@@ -57,7 +57,8 @@ export default function Hero() {
         <div className="text-center max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0 }}
             transition={{ delay: 0.2 }}
             className="inline-flex items-center gap-2 bg-primary-600/20 border border-primary-400/30 rounded-full px-4 py-2 mb-6"
           >
@@ -67,7 +68,8 @@ export default function Hero() {
 
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0 }}
             transition={{ delay: 0.3 }}
             className="text-4xl sm:text-5xl md:text-6xl font-black leading-tight mb-6"
           >
@@ -79,7 +81,8 @@ export default function Hero() {
 
           <motion.p
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0 }}
             transition={{ delay: 0.4 }}
             className="text-lg sm:text-xl text-blue-100/80 mb-10 max-w-2xl mx-auto"
           >
@@ -89,7 +92,8 @@ export default function Hero() {
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0 }}
             transition={{ delay: 0.5 }}
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
           >
@@ -115,7 +119,8 @@ export default function Hero() {
           {/* Stats */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0 }}
             transition={{ delay: 0.6 }}
             className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto"
           >

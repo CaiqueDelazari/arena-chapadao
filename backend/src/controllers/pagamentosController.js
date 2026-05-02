@@ -13,7 +13,7 @@ const createPix = async (req, res) => {
     const { reserva_id } = req.body;
 
     const reservaResult = await query(
-      `SELECT r.*, q.name as quadra_name FROM reservas r
+      `SELECT r.*, q.name as quadra_name, q.sport_type as quadra_sport_type FROM reservas r
        LEFT JOIN quadras q ON r.quadra_id = q.id WHERE r.id = $1`,
       [reserva_id]
     );
@@ -29,7 +29,7 @@ const createPix = async (req, res) => {
       description: `Reserva ${reserva.quadra_name} - ${reserva.date} ${reserva.start_time}`,
       payment_method_id: 'pix',
       payer: {
-        email: reserva.client_email || 'cliente@divinoarena.com',
+        email: reserva.client_email || 'cliente@arenachapadao.com',
         first_name: reserva.client_name.split(' ')[0],
         last_name: reserva.client_name.split(' ').slice(1).join(' ') || 'Cliente',
         identification: { type: 'CPF', number: '00000000000' },
@@ -48,12 +48,16 @@ const createPix = async (req, res) => {
       );
       pixData = mpResponse.data;
     } catch (mpErr) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('createPix MP error:', mpErr?.response?.data || mpErr.message);
+        return res.status(502).json({ success: false, message: 'Falha ao gerar PIX. Tente novamente.' });
+      }
       pixData = {
         id: `MOCK_${Date.now()}`,
         point_of_interaction: {
           transaction_data: {
             qr_code_base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-            qr_code: `00020126580014BR.GOV.BCB.PIX0136${reserva_id}5204000053039865802BR5913Divino Arena6009SAO PAULO62070503***6304ABCD`,
+            qr_code: `00020126580014BR.GOV.BCB.PIX0136${reserva_id}5204000053039865802BR5913Arena Chapadao6009SAO PAULO62070503***6304ABCD`,
           }
         },
         status: 'pending',
@@ -99,7 +103,7 @@ const createCard = async (req, res) => {
     const { reserva_id, token, installments = 1, issuer_id, payment_method_id } = req.body;
 
     const reservaResult = await query(
-      `SELECT r.*, q.name as quadra_name FROM reservas r
+      `SELECT r.*, q.name as quadra_name, q.sport_type as quadra_sport_type FROM reservas r
        LEFT JOIN quadras q ON r.quadra_id = q.id WHERE r.id = $1`,
       [reserva_id]
     );
@@ -117,7 +121,7 @@ const createCard = async (req, res) => {
       installments: parseInt(installments),
       payment_method_id,
       issuer_id,
-      payer: { email: reserva.client_email || 'cliente@divinoarena.com' },
+      payer: { email: reserva.client_email || 'cliente@arenachapadao.com' },
       notification_url: process.env.MP_NOTIFICATION_URL,
       external_reference: reserva_id,
     };
@@ -126,8 +130,9 @@ const createCard = async (req, res) => {
     try {
       const mpResponse = await axios.post('https://api.mercadopago.com/v1/payments', mpPayload, { headers: getMercadoPagoHeaders() });
       cardData = mpResponse.data;
-    } catch (_) {
-      cardData = { id: `MOCK_CARD_${Date.now()}`, status: 'approved' };
+    } catch (mpErr) {
+      console.error('createCard MP error:', mpErr?.response?.data || mpErr.message);
+      return res.status(502).json({ success: false, message: 'Falha ao processar cartão. Tente novamente ou use outro método.' });
     }
 
     const pagamento = await query(
@@ -185,7 +190,7 @@ const webhook = async (req, res) => {
         if (status === 'approved') {
           const reservaId = pagamento.rows[0].reserva_id;
           const reservaResult = await query(
-            `SELECT r.*, q.name as quadra_name FROM reservas r
+            `SELECT r.*, q.name as quadra_name, q.sport_type as quadra_sport_type FROM reservas r
              LEFT JOIN quadras q ON r.quadra_id = q.id WHERE r.id = $1`,
             [reservaId]
           );
@@ -216,12 +221,46 @@ const webhook = async (req, res) => {
 const getStatus = async (req, res) => {
   try {
     const result = await query(
-      `SELECT p.*, r.status as reserva_status FROM pagamentos p
-       LEFT JOIN reservas r ON p.reserva_id = r.id WHERE p.id = $1`,
+      `SELECT p.*, r.status as reserva_status, r.client_phone, r.client_name, r.date,
+              r.start_time, r.end_time, r.total_amount, r.payment_method,
+              q.sport_type as quadra_sport_type
+       FROM pagamentos p
+       LEFT JOIN reservas r ON p.reserva_id = r.id
+       LEFT JOIN quadras q ON r.quadra_id = q.id
+       WHERE p.id = $1`,
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pagamento não encontrado' });
-    res.json({ success: true, data: result.rows[0] });
+
+    const pagamento = result.rows[0];
+
+    // Se ainda está pendente, consulta o MP em tempo real
+    if (pagamento.status === 'pending' && pagamento.payment_gateway_id && !pagamento.payment_gateway_id.startsWith('MOCK')) {
+      try {
+        const mpResponse = await axios.get(
+          `https://api.mercadopago.com/v1/payments/${pagamento.payment_gateway_id}`,
+          { headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}` } }
+        );
+        const mpStatus = mpResponse.data.status;
+
+        if (mpStatus === 'approved') {
+          await query('UPDATE pagamentos SET status = $1, updated_at = NOW() WHERE id = $2', ['approved', pagamento.id]);
+          await query(
+            `UPDATE reservas SET status = 'confirmed', payment_status = 'approved', updated_at = NOW() WHERE id = $1`,
+            [pagamento.reserva_id]
+          );
+          pagamento.status = 'approved';
+          pagamento.reserva_status = 'confirmed';
+
+          try {
+            await whatsappService.sendReservationConfirmation(pagamento.client_phone, pagamento);
+            await whatsappService.sendAdminNotification(pagamento);
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    res.json({ success: true, data: pagamento });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Erro ao buscar status' });
   }

@@ -39,7 +39,7 @@ const sendReservationConfirmation = async (phone, reserva) => {
   const sportName = getSportName(reserva.sport_type || reserva.quadra_sport_type);
   const message = `✅ *Sua reserva foi confirmada!*
 
-🏟️ *Divino Arena*
+🏟️ *Arena Chapadão*
 
 ⚽ *Esporte:* ${sportName}
 📅 *Data:* ${formatDate(reserva.date)}
@@ -49,7 +49,7 @@ const sendReservationConfirmation = async (phone, reserva) => {
 
 👤 *Nome:* ${reserva.client_name}
 
-✨ Obrigado por reservar na *Divino Arena*!
+✨ Obrigado por reservar na *Arena Chapadão*!
 Até ${formatDate(reserva.date)}! 🎉`;
 
   return sendMessage(phone, message);
@@ -83,7 +83,7 @@ Sua reserva foi cancelada:
 🕐 *Horário:* ${reserva.start_time?.substring(0, 5)} - ${reserva.end_time?.substring(0, 5)}
 
 Para mais informações, entre em contato conosco.
-*Divino Arena* 🏟️`;
+*Arena Chapadão* 🏟️`;
 
   return sendMessage(phone, message);
 };
@@ -97,7 +97,7 @@ Sua reserva está aguardando pagamento:
 💰 *Valor:* ${formatCurrency(reserva.total_amount)}
 
 Acesse o link para finalizar o pagamento.
-*Divino Arena* 🏟️`;
+*Arena Chapadão* 🏟️`;
 
   return sendMessage(phone, message);
 };

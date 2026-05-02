@@ -7,9 +7,9 @@ router.post('/', optionalAuth, create);
 router.get('/minhas', authenticate, getMyReservas);
 router.get('/', authenticate, requireAdmin, getAll);
 router.get('/agenda', authenticate, requireAdmin, getAgenda);
-router.get('/:id', getById);
+router.get('/:id', authenticate, getById);
 router.put('/:id/status', authenticate, requireAdmin, updateStatus);
 router.put('/:id/remarcar', authenticate, reschedule);
-router.post('/:id/cancel', cancel);
+router.post('/:id/cancel', authenticate, cancel);
 
 module.exports = router;
