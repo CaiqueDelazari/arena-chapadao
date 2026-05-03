@@ -50,6 +50,23 @@ const getAvailableSlots = async (req, res) => {
 
     const reservedTimes = reservedResult.rows.map(r => r.start_time.substring(0, 5));
 
+    let blockedTimes = [];
+    try {
+      const blockedResult = await query(
+        `SELECT start_time FROM bloqueios WHERE quadra_id = $1 AND date = $2`,
+        [id, date]
+      );
+      blockedTimes = blockedResult.rows.map(b => b.start_time.substring(0, 5));
+    } catch (_) {}
+
+    try {
+      const mensalistaResult = await query(
+        `SELECT start_time FROM mensalistas WHERE quadra_id = $1 AND day_of_week = $2 AND is_active = true`,
+        [id, dayOfWeek]
+      );
+      blockedTimes = [...blockedTimes, ...mensalistaResult.rows.map(m => m.start_time.substring(0, 5))];
+    } catch (_) {}
+
     const slots = slotsResult.rows.map(slot => {
       const startTime = slot.start_time.substring(0, 5);
       const isPast = date === new Date().toISOString().split('T')[0] &&
@@ -58,7 +75,7 @@ const getAvailableSlots = async (req, res) => {
       return {
         time: startTime,
         end_time: slot.end_time.substring(0, 5),
-        available: !reservedTimes.includes(startTime) && !isPast,
+        available: !reservedTimes.includes(startTime) && !blockedTimes.includes(startTime) && !isPast,
       };
     });
 

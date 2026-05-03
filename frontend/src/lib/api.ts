@@ -1,6 +1,6 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { ApiResponse, Quadra, TimeSlot, Reserva, BookingData, DashboardStats, FinanceiroData } from '@/types';
+import { ApiResponse, Quadra, TimeSlot, Reserva, BookingData, DashboardStats, FinanceiroData, Bloqueio, Mensalista } from '@/types';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
@@ -114,6 +114,21 @@ export const adminApi = {
 
   updateReservaStatus: (id: string, status: string) =>
     api.put<ApiResponse<Reserva>>(`/reservas/${id}/status`, { status }),
+};
+
+export const mensalistasApi = {
+  getAll: () => api.get<ApiResponse<Mensalista[]>>('/admin/mensalistas'),
+  create: (data: { client_name: string; client_phone: string; client_email?: string; quadra_id: string; day_of_week: number; start_time: string; end_time: string; notes?: string }) =>
+    api.post<ApiResponse<Mensalista>>('/admin/mensalistas', data),
+  delete: (id: string) => api.delete(`/admin/mensalistas/${id}`),
+};
+
+export const bloqueiosApi = {
+  getAll: (start: string, end: string) =>
+    api.get<ApiResponse<Bloqueio[]>>(`/admin/bloqueios?start=${start}&end=${end}`),
+  create: (data: { quadra_id: string; date: string; start_time: string; end_time: string; reason?: string }) =>
+    api.post<ApiResponse<Bloqueio>>('/admin/bloqueios', data),
+  delete: (id: string) => api.delete(`/admin/bloqueios/${id}`),
 };
 
 export default api;

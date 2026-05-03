@@ -120,6 +120,34 @@ export interface FinanceiroData {
   }>;
 }
 
+export interface Mensalista {
+  id: string;
+  client_name: string;
+  client_phone: string;
+  client_email?: string;
+  quadra_id: string;
+  quadra_name?: string;
+  sport_type?: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  notes?: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Bloqueio {
+  id: string;
+  quadra_id: string;
+  quadra_name?: string;
+  sport_type?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  reason?: string;
+  created_at: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;

@@ -76,6 +76,14 @@ export default function Navbar() {
           )}
           <Button
             size="sm"
+            onClick={() => window.location.href = '/admin/login'}
+            className="hidden md:flex font-bold"
+            variant="outline"
+          >
+            Admin
+          </Button>
+          <Button
+            size="sm"
             onClick={() => window.location.href = '/agenda'}
             className="hidden md:flex text-white font-bold"
             style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}
@@ -110,6 +118,9 @@ export default function Navbar() {
                   {link.label}
                 </a>
               ))}
+              <Button fullWidth variant="outline" onClick={() => window.location.href = '/admin/login'}>
+                Admin
+              </Button>
               <Button fullWidth onClick={() => window.location.href = '/agenda'}
                 style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}>
                 Reservar Agora

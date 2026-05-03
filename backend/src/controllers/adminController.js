@@ -1,5 +1,132 @@
 const { query } = require('../config/database');
 
+const ensureMensalistasTable = async () => {
+  await query(`
+    CREATE TABLE IF NOT EXISTS mensalistas (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_name VARCHAR(255) NOT NULL,
+      client_phone VARCHAR(20) NOT NULL,
+      client_email VARCHAR(255),
+      quadra_id UUID NOT NULL REFERENCES quadras(id) ON DELETE CASCADE,
+      day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      notes TEXT,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+};
+
+const getMensalistas = async (req, res) => {
+  try {
+    await ensureMensalistasTable();
+    const result = await query(
+      `SELECT m.*, q.name as quadra_name, q.sport_type
+       FROM mensalistas m LEFT JOIN quadras q ON m.quadra_id = q.id
+       WHERE m.is_active = true
+       ORDER BY m.day_of_week, m.start_time`,
+      []
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('getMensalistas error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao buscar mensalistas' });
+  }
+};
+
+const createMensalista = async (req, res) => {
+  try {
+    await ensureMensalistasTable();
+    const { client_name, client_phone, client_email, quadra_id, day_of_week, start_time, end_time, notes } = req.body;
+    if (!client_name || !client_phone || !quadra_id || day_of_week === undefined || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: 'Campos obrigatórios faltando' });
+    }
+    const result = await query(
+      `INSERT INTO mensalistas (client_name, client_phone, client_email, quadra_id, day_of_week, start_time, end_time, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [client_name, client_phone, client_email || null, quadra_id, day_of_week, start_time, end_time, notes || null]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('createMensalista error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao cadastrar mensalista' });
+  }
+};
+
+const deleteMensalista = async (req, res) => {
+  try {
+    await ensureMensalistasTable();
+    await query('UPDATE mensalistas SET is_active = false WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Mensalista removido' });
+  } catch (err) {
+    console.error('deleteMensalista error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao remover mensalista' });
+  }
+};
+
+const ensureBloqueiosTable = async () => {
+  await query(`
+    CREATE TABLE IF NOT EXISTS bloqueios (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      quadra_id UUID NOT NULL REFERENCES quadras(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+};
+
+const getBloqueios = async (req, res) => {
+  try {
+    await ensureBloqueiosTable();
+    const { start, end } = req.query;
+    const result = await query(
+      `SELECT b.*, q.name as quadra_name, q.sport_type
+       FROM bloqueios b LEFT JOIN quadras q ON b.quadra_id = q.id
+       WHERE b.date BETWEEN $1 AND $2
+       ORDER BY b.date, b.start_time`,
+      [start, end]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('getBloqueios error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao buscar bloqueios' });
+  }
+};
+
+const createBloqueio = async (req, res) => {
+  try {
+    await ensureBloqueiosTable();
+    const { quadra_id, date, start_time, end_time, reason } = req.body;
+    if (!quadra_id || !date || !start_time || !end_time) {
+      return res.status(400).json({ success: false, message: 'quadra_id, date, start_time e end_time são obrigatórios' });
+    }
+    const result = await query(
+      `INSERT INTO bloqueios (quadra_id, date, start_time, end_time, reason)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [quadra_id, date, start_time, end_time, reason || null]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('createBloqueio error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao criar bloqueio' });
+  }
+};
+
+const deleteBloqueio = async (req, res) => {
+  try {
+    await ensureBloqueiosTable();
+    await query('DELETE FROM bloqueios WHERE id = $1', [req.params.id]);
+    res.json({ success: true, message: 'Bloqueio removido' });
+  } catch (err) {
+    console.error('deleteBloqueio error:', err);
+    res.status(500).json({ success: false, message: 'Erro ao remover bloqueio' });
+  }
+};
+
 const getDashboard = async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -179,4 +306,4 @@ const updateConfiguracoes = async (req, res) => {
   }
 };
 
-module.exports = { getDashboard, getFinanceiro, getAgenda, getClientes, getConfiguracoes, updateConfiguracoes };
+module.exports = { getDashboard, getFinanceiro, getAgenda, getClientes, getConfiguracoes, updateConfiguracoes, getBloqueios, createBloqueio, deleteBloqueio, getMensalistas, createMensalista, deleteMensalista };
