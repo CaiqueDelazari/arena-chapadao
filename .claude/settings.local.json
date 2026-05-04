@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node src/config/migrate.js)"
+      "Bash(node src/config/migrate.js)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/setup-areia-courts.js)"
     ]
   }
 }
