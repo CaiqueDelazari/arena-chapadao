@@ -1,4 +1,5 @@
-import { Trophy, Phone, Mail, MapPin, Zap, Shield, MessageCircle, BarChart3 } from 'lucide-react';
+import Image from 'next/image';
+import { Phone, MapPin, Zap, Shield, MessageCircle, BarChart3, Clock } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -7,13 +8,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
           <div className="md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="font-black text-xl">Divino Arena</div>
-                <div className="text-xs text-blue-400 tracking-widest">QUADRAS ESPORTIVAS</div>
-              </div>
+              <Image src="/logo.jpeg" alt="Arena Chapadão" width={64} height={64} className="rounded-xl object-contain bg-white p-1" />
             </div>
             <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
               Mais praticidade para você. Mais organização para o seu negócio.
@@ -48,15 +43,15 @@ export default function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-slate-400">
                 <Phone className="w-4 h-4 text-primary-400 flex-shrink-0" />
-                (11) 99999-9999
+                <a href="tel:1431000320" className="hover:text-white transition-colors">(14) 3100-0320</a>
               </li>
               <li className="flex items-center gap-2 text-sm text-slate-400">
-                <Mail className="w-4 h-4 text-primary-400 flex-shrink-0" />
-                contato@divinoarena.com
+                <Clock className="w-4 h-4 text-primary-400 flex-shrink-0" />
+                16:30 – 00:00 (Seg a Dom)
               </li>
               <li className="flex items-start gap-2 text-sm text-slate-400">
                 <MapPin className="w-4 h-4 text-primary-400 flex-shrink-0 mt-0.5" />
-                Rua das Quadras, 123<br />São Paulo, SP
+                Agudos, SP
               </li>
             </ul>
           </div>
@@ -76,7 +71,7 @@ export default function Footer() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-slate-600">© 2025 Divino Arena. Todos os direitos reservados.</p>
+          <p className="text-xs text-slate-600">© 2025 Arena Chapadão. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

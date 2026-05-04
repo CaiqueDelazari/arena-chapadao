@@ -18,6 +18,7 @@ export interface Quadra {
   sport_type: SportType;
   description?: string;
   price_per_hour: number;
+  price_per_hour_weekend?: number;
   image_url?: string;
   is_active: boolean;
 }

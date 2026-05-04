@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Moon, Sun, Trophy } from 'lucide-react';
+import { Menu, X, Moon, Sun } from 'lucide-react';
+import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import Button from '@/components/ui/Button';
@@ -34,17 +35,9 @@ export default function Navbar() {
           href="/"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-2"
         >
-          <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow">
-            <Trophy className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className={cn('font-black text-lg leading-none tracking-tight', isScrolled ? 'text-slate-900 dark:text-white' : 'text-white')}>
-              Arena Chapadão
-            </div>
-            <div className="text-[10px] font-bold tracking-widest" style={{ color: '#f97316' }}>AGUDOS</div>
-          </div>
+          <Image src="/logo.jpeg" alt="Arena Chapadão" width={48} height={48} className="rounded-lg object-contain" />
         </motion.a>
 
         <div className="hidden md:flex items-center gap-8">

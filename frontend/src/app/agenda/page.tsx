@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, ChevronLeft, ChevronRight, Calendar, X, CreditCard, CheckCircle, Copy, ArrowLeft, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+import { ChevronLeft, ChevronRight, Calendar, X, CreditCard, CheckCircle, Copy, ArrowLeft, MessageCircle } from 'lucide-react';
 import { quadrasApi, reservasApi, pagamentosApi } from '@/lib/api';
 import { Quadra } from '@/types';
 import toast from 'react-hot-toast';
 
-const HOURS = Array.from({ length: 15 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+const HOURS = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'];
 
 const SPORTS = [
   {
@@ -108,7 +109,11 @@ function BookingModal({ slot, onClose, onBooked }: { slot: BookingSlot; onClose:
   const [pix, setPix] = useState<{ qrcode: string; copypaste: string; pagamento_id: string } | null>(null);
   const [, setReservaId] = useState('');
 
-  const price = Number(slot.quadra.price_per_hour);
+  const dayOfWeek = new Date(slot.date + 'T12:00:00').getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+  const price = isWeekend && slot.quadra.price_per_hour_weekend
+    ? Number(slot.quadra.price_per_hour_weekend)
+    : Number(slot.quadra.price_per_hour);
   const [sh, sm] = slot.startTime.split(':').map(Number);
   const [eh, em] = slot.endTime.split(':').map(Number);
   const hours = ((eh * 60 + em) - (sh * 60 + sm)) / 60 || 1;
@@ -416,13 +421,7 @@ export default function AgendaPage() {
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 shadow-sm">
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
             <a href="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #ea6c0d, #f97316)' }}>
-                <Trophy className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <div className="font-black text-slate-900 dark:text-white text-sm leading-none">Arena Chapadão</div>
-                <div className="text-[9px] font-bold tracking-widest" style={{ color: '#f97316' }}>AGUDOS</div>
-              </div>
+              <Image src="/logo.jpeg" alt="Arena Chapadão" width={40} height={40} className="rounded-lg object-contain" />
             </a>
             <a href="/minha-conta" className="text-sm text-slate-500 hover:text-orange-500 transition font-medium">
               Minhas reservas →
@@ -452,7 +451,13 @@ export default function AgendaPage() {
                     const courtsOfSport = sport.type === 'areia'
                       ? quadras.filter(q => isAreiaSport(q.sport_type))
                       : quadras.filter(q => q.sport_type === sport.type);
-                    const price = courtsOfSport[0]?.price_per_hour;
+                    const firstCourt = courtsOfSport[0];
+                    const hasWeekendPrice = firstCourt?.price_per_hour_weekend;
+                    const priceLabel = firstCourt
+                      ? hasWeekendPrice
+                        ? `R$ ${Number(firstCourt.price_per_hour_weekend).toFixed(0)}–${Number(firstCourt.price_per_hour).toFixed(0)}/h`
+                        : `R$ ${Number(firstCourt.price_per_hour).toFixed(0)}/h`
+                      : null;
                     return (
                       <motion.button
                         key={sport.type}
@@ -467,9 +472,9 @@ export default function AgendaPage() {
                         <div className="text-5xl mb-3">{sport.icon}</div>
                         <h3 className="text-lg font-black text-slate-900 dark:text-white">{sport.name}</h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{sport.description}</p>
-                        {price && (
+                        {priceLabel && (
                           <span className={`inline-block mt-3 text-xs font-bold px-2.5 py-1 rounded-full ${sport.badge}`}>
-                            R$ {Number(price).toFixed(0)}/h
+                            {priceLabel}
                           </span>
                         )}
                         {courtsOfSport.length === 0 && quadras.length > 0 && (
@@ -565,7 +570,14 @@ export default function AgendaPage() {
                                   <span className="text-2xl">{sportInfo?.icon ?? sportIcon(q.sport_type)}</span>
                                   <span className="text-xs font-black text-slate-800 dark:text-slate-200">{q.name}</span>
                                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${sportInfo?.badge ?? ''}`}>
-                                    R$ {Number(q.price_per_hour).toFixed(0)}/h
+                                    {(() => {
+                                      const dow = new Date(date + 'T12:00:00').getDay();
+                                      const wknd = dow === 0 || dow === 5 || dow === 6;
+                                      const p = wknd && q.price_per_hour_weekend
+                                        ? Number(q.price_per_hour_weekend)
+                                        : Number(q.price_per_hour);
+                                      return `R$ ${p.toFixed(0)}/h`;
+                                    })()}
                                   </span>
                                 </div>
                               </th>
